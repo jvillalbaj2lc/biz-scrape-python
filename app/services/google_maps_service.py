@@ -1,48 +1,125 @@
 import requests
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict
+from time import sleep
+import json
+from google.oauth2 import service_account
+from google.auth.transport.requests import AuthorizedSession
+from app.core.constants import (
+    GOOGLE_PLACES_URL,
+    GOOGLE_DETAILS_URL,
+    GOOGLE_PLACE_TYPES,
+    GOOGLE_PLACES_FIELDS,
+    GOOGLE_API_STATUS_OK,
+    GOOGLE_API_STATUS_ZERO_RESULTS,
+    GOOGLE_API_KEY_ENV,
+    GOOGLE_CREDENTIALS_FILE_ENV,
+    GOOGLE_AUTH_SCOPES
+)
 
-GOOGLE_PLACES_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-GOOGLE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Store API Key in .env file
+class GoogleMapsServiceError(Exception):
+    """Custom exception for Google Maps API errors"""
+    pass
 
 class GoogleMapsService:
-    @staticmethod
+    def __init__(self):
+        """Initialize the service with appropriate authentication"""
+        self.session = self._get_authenticated_session()
+
+    def _get_authenticated_session(self) -> requests.Session:
+        """
+        Get an authenticated session using either API key or service account.
+        Prioritizes service account authentication over API key.
+        """
+        # Try service account authentication first
+        credentials_path = os.getenv(GOOGLE_CREDENTIALS_FILE_ENV)
+        if credentials_path and os.path.exists(credentials_path):
+            try:
+                credentials = service_account.Credentials.from_service_account_file(
+                    credentials_path,
+                    scopes=GOOGLE_AUTH_SCOPES
+                )
+                return AuthorizedSession(credentials)
+            except Exception as e:
+                print(f"Warning: Failed to load service account credentials: {e}")
+
+        # Fall back to API key authentication
+        api_key = os.getenv(GOOGLE_API_KEY_ENV)
+        if not api_key:
+            raise GoogleMapsServiceError(
+                f"Neither service account credentials nor API key found. "
+                f"Please set either {GOOGLE_CREDENTIALS_FILE_ENV} or {GOOGLE_API_KEY_ENV}"
+            )
+
+        session = requests.Session()
+        session.params = {'key': api_key}
+        return session
+
     def search_businesses(
-        business_type: str, latitude: float, longitude: float, radius: int = 5000, limit: int = 50
+        self, business_type: str, latitude: float, longitude: float, 
+        radius: int = 5000, limit: int = 50
     ) -> List[Dict]:
         """
         Search businesses using Google Places API.
         """
+        if business_type.lower() not in [t.lower() for t in GOOGLE_PLACE_TYPES]:
+            raise GoogleMapsServiceError(f"Invalid business type: {business_type}. Must be one of {GOOGLE_PLACE_TYPES}")
+
         params = {
             "location": f"{latitude},{longitude}",
             "radius": radius,
-            "type": business_type.lower(),
-            "key": GOOGLE_API_KEY
+            "type": business_type.lower()
         }
 
-        response = requests.get(GOOGLE_PLACES_URL, params=params)
-        if response.status_code != 200:
-            print(f"Error: Google Places API returned status {response.status_code}")
-            return []
+        try:
+            response = self.session.get(GOOGLE_PLACES_URL, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("status") != GOOGLE_API_STATUS_OK and data.get("status") != GOOGLE_API_STATUS_ZERO_RESULTS:
+                raise GoogleMapsServiceError(f"Google API Error: {data.get('status')} - {data.get('error_message', 'Unknown error')}")
+            
+            results = data.get("results", [])
+            
+            # Handle pagination if needed and respect rate limits
+            next_page_token = data.get("next_page_token")
+            while next_page_token and len(results) < limit:
+                sleep(2)  # Wait for next page token to become valid
+                params["pagetoken"] = next_page_token
+                response = self.session.get(GOOGLE_PLACES_URL, params=params)
+                response.raise_for_status()
+                data = response.json()
+                results.extend(data.get("results", []))
+                next_page_token = data.get("next_page_token")
 
-        results = response.json().get("results", [])
-        return results[:limit]  # Limit results
+            return results[:limit]
 
-    @staticmethod
-    def get_business_details(place_id: str) -> Dict:
+        except requests.exceptions.RequestException as e:
+            raise GoogleMapsServiceError(f"Request failed: {str(e)}")
+
+    def get_business_details(self, place_id: str) -> Dict:
         """
         Get additional details about a business.
         """
         params = {
             "place_id": place_id,
-            "fields": "name,formatted_address,geometry,formatted_phone_number,website",
-            "key": GOOGLE_API_KEY
+            "fields": ",".join(GOOGLE_PLACES_FIELDS)
         }
 
-        response = requests.get(GOOGLE_DETAILS_URL, params=params)
-        if response.status_code != 200:
-            print(f"Error: Google Places Details API returned status {response.status_code}")
-            return {}
+        try:
+            response = self.session.get(GOOGLE_DETAILS_URL, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("status") != GOOGLE_API_STATUS_OK:
+                raise GoogleMapsServiceError(f"Google API Error: {data.get('status')} - {data.get('error_message', 'Unknown error')}")
+            
+            return data.get("result", {})
 
-        return response.json().get("result", {})
+        except requests.exceptions.RequestException as e:
+            raise GoogleMapsServiceError(f"Request failed: {str(e)}")
+
+    @classmethod
+    def create(cls) -> 'GoogleMapsService':
+        """Factory method to create a new instance of the service"""
+        return cls()
