@@ -171,3 +171,32 @@ sqlite3.db
 *.db
 biz_scrape.db
 
+# Virtual Environment
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.*
+
+# Keys and Secrets
+keys/
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.keystore
+*.jks
+service-account*.json
+google_credentials.json
+*_key.json
+*_keys.json
+

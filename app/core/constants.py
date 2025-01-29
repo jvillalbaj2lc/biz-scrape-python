@@ -2,10 +2,17 @@
 GOOGLE_PLACES_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
 GOOGLE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 
-# Google API Authentication
-GOOGLE_API_KEY_ENV = "GOOGLE_API_KEY"
-GOOGLE_CREDENTIALS_FILE_ENV = "GOOGLE_APPLICATION_CREDENTIALS"
+# Google API Authentication Environment Variables
+GOOGLE_API_KEY_ENV = "GOOGLE_API_KEY"  # Name of the environment variable for API key
+GOOGLE_CREDENTIALS_FILE_ENV = "GOOGLE_APPLICATION_CREDENTIALS"  # Name of the environment variable for service account path
+
+# Google API Authentication Scopes
 GOOGLE_AUTH_SCOPES = ["https://www.googleapis.com/auth/places"]
+
+# Key Paths (relative to project root)
+KEYS_DIR = "keys"
+GOOGLE_KEYS_DIR = "keys/google"
+DEFAULT_SERVICE_ACCOUNT_FILE = "keys/google/service-account.json"
 
 # Google Places API Fields
 GOOGLE_PLACES_FIELDS = [
