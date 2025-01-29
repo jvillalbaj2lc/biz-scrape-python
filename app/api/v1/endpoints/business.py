@@ -4,7 +4,7 @@ from app.core.database import SessionLocal
 from app.repositories.business_repository import BusinessRepository
 from app.schemas.business import BusinessCreate, BusinessResponse, BusinessUpdate
 from app.services.google_maps_service import GoogleMapsService
-from typing import List, Optional
+from typing import List
 import json
 
 

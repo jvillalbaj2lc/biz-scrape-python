@@ -1,13 +1,14 @@
 from sqlalchemy.orm import Session
 from app.models.business import Business
 from app.schemas.business import BusinessCreate, BusinessUpdate
-from datetime import datetime
+from datetime import datetime, UTC
 
 class BusinessRepository:
     
     @staticmethod
     def create(db: Session, business: BusinessCreate):
         """Creates a new business entry in the database."""
+        current_time = datetime.now(UTC)
         db_business = Business(
             osm_id=business.osm_id,
             name=business.name,
@@ -18,8 +19,8 @@ class BusinessRepository:
             phone_number=business.phone_number,
             email=business.email,
             website=business.website,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=current_time,
+            updated_at=current_time
         )
         db.add(db_business)
         db.commit()
@@ -48,10 +49,10 @@ class BusinessRepository:
         if not db_business:
             return None
         
-        for key, value in business_update.dict(exclude_unset=True).items():
+        for key, value in business_update.model_dump(exclude_unset=True).items():
             setattr(db_business, key, value)
         
-        db_business.updated_at = datetime.utcnow()
+        db_business.updated_at = datetime.now(UTC)
         db.commit()
         db.refresh(db_business)
         return db_business
