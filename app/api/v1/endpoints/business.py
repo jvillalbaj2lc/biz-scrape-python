@@ -30,7 +30,7 @@ def search_businesses(
     """
     Search businesses using Google Places API and store results in our database.
     """
-    google_results = GoogleMapsService.search_businesses(business_type, latitude, longitude, radius, limit)
+    google_results = GoogleMapsService().search_businesses(business_type, latitude, longitude, radius, limit)
 
     if not google_results:
         return []
@@ -38,7 +38,7 @@ def search_businesses(
     businesses = []
     for item in google_results:
         place_id = item.get("place_id")
-        details = GoogleMapsService.get_business_details(place_id)
+        details = GoogleMapsService().get_business_details(place_id)
 
         business_data = {
             "osm_id": place_id,  # Store place_id as our unique identifier
@@ -52,9 +52,12 @@ def search_businesses(
             "website": details.get("website"),
         }
 
-        existing_business = BusinessRepository.get_by_osm_id(db, business_data["osm_id"])
+        # Convert dictionary to Pydantic schema
+        business_schema = BusinessCreate(**business_data)
+
+        existing_business = BusinessRepository.get_by_osm_id(db, business_schema.osm_id)
         if not existing_business:
-            new_business = BusinessRepository.create(db, business_data)
+            new_business = BusinessRepository.create(db, business_schema)
             businesses.append(new_business)
         else:
             businesses.append(existing_business)

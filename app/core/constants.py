@@ -15,21 +15,29 @@ GOOGLE_KEYS_DIR = "keys/google"
 DEFAULT_SERVICE_ACCOUNT_FILE = "keys/google/service-account.json"
 
 # Google Places API Fields
+# GOOGLE_PLACES_FIELDS = [
+#     "name",
+#     "formatted_address",
+#     "geometry",
+#     "formatted_phone_number",
+#     "website",
+#     "type",
+#     "email",
+#     "opening_hours",
+#     "rating",
+#     "reviews",
+#     "place_id",
+#     "photos",
+#     "price_level",
+#     "user_ratings_total"
+# ]
 GOOGLE_PLACES_FIELDS = [
     "name",
     "formatted_address",
     "geometry",
     "formatted_phone_number",
     "website",
-    "type",
-    "email",
-    "opening_hours",
-    "rating",
-    "reviews",
-    "place_id",
-    "photos",
-    "price_level",
-    "user_ratings_total"
+    "place_id"
 ]
 
 # Valid place types as per Google Places API documentation

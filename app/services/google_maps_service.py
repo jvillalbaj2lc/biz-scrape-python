@@ -62,31 +62,31 @@ class GoogleMapsService:
         """
         Search businesses using Google Places API.
         """
-        if business_type.lower() not in [t.lower() for t in GOOGLE_PLACE_TYPES]:
-            raise GoogleMapsServiceError(f"Invalid business type: {business_type}. Must be one of {GOOGLE_PLACE_TYPES}")
-
         params = {
             "location": f"{latitude},{longitude}",
             "radius": radius,
-            "type": business_type.lower()
+            "keyword": business_type,  # Use 'keyword' instead of 'type' for better results
+            "key": os.getenv(GOOGLE_API_KEY_ENV)
         }
 
         try:
-            response = self.session.get(GOOGLE_PLACES_URL, params=params)
+            response = requests.get(GOOGLE_PLACES_URL, params=params)
             response.raise_for_status()
             data = response.json()
-            
-            if data.get("status") != GOOGLE_API_STATUS_OK and data.get("status") != GOOGLE_API_STATUS_ZERO_RESULTS:
-                raise GoogleMapsServiceError(f"Google API Error: {data.get('status')} - {data.get('error_message', 'Unknown error')}")
-            
+
+            if data.get("status") not in {GOOGLE_API_STATUS_OK, GOOGLE_API_STATUS_ZERO_RESULTS}:
+                raise GoogleMapsServiceError(
+                    f"Google API Error: {data.get('status')} - {data.get('error_message', 'Unknown error')}"
+                )
+
             results = data.get("results", [])
-            
+
             # Handle pagination if needed and respect rate limits
             next_page_token = data.get("next_page_token")
             while next_page_token and len(results) < limit:
-                sleep(2)  # Wait for next page token to become valid
+                sleep(2)  # Wait before requesting next page
                 params["pagetoken"] = next_page_token
-                response = self.session.get(GOOGLE_PLACES_URL, params=params)
+                response = requests.get(GOOGLE_PLACES_URL, params=params)
                 response.raise_for_status()
                 data = response.json()
                 results.extend(data.get("results", []))
@@ -97,13 +97,15 @@ class GoogleMapsService:
         except requests.exceptions.RequestException as e:
             raise GoogleMapsServiceError(f"Request failed: {str(e)}")
 
+
     def get_business_details(self, place_id: str) -> Dict:
         """
         Get additional details about a business.
         """
         params = {
             "place_id": place_id,
-            "fields": ",".join(GOOGLE_PLACES_FIELDS)
+            "fields": ",".join(GOOGLE_PLACES_FIELDS),
+            "key": os.getenv(GOOGLE_API_KEY_ENV)
         }
 
         try:
@@ -113,7 +115,7 @@ class GoogleMapsService:
             
             if data.get("status") != GOOGLE_API_STATUS_OK:
                 raise GoogleMapsServiceError(f"Google API Error: {data.get('status')} - {data.get('error_message', 'Unknown error')}")
-            
+
             return data.get("result", {})
 
         except requests.exceptions.RequestException as e:
